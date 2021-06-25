@@ -11,6 +11,8 @@ import signal
 import json
 from Tools.cache import ConfigCache
 import setupdatabase
+import models
+
 
 nest_asyncio.apply()
 client = commands.Bot(command_prefix="!")

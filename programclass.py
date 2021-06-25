@@ -9,7 +9,6 @@ import discord
 from discord.ext import commands
 
 
-
 # program class that stores some variables and cog instances for easy accessability of data
 # will also put some methods here later
 

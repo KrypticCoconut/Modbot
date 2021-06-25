@@ -5,13 +5,14 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.asyncio import AsyncSession
 
 class sqlconnmanager:
-    def __init__(self, user:str, password:str):
-        self.base = declarative_base()
+    def __init__(self, user:str, password:str, base):
+        self.base = base
         self.metadata = self.base.metadata
         self.all_conns = dict()
         self.user = user
         self.password = password
-        
+    
+
     def CreateConn(self, dbname: str, main:bool = False):
 
         # if([key for key,val in self.all_sessions.items() if val == dbname ]):

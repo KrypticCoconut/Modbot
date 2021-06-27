@@ -13,34 +13,9 @@ Base = declarative_base()
 class ModBotTable(Base):
     __tablename__ = 'ModbotTable'
 
-    id = Column(Integer, primary_key=True)
-    serverid = Column(Integer)
-    prefix = Column(String(1), default = "!")
-
-    def addconfig(session):
-        async def wrapper(id: int, config=None):
-            stmt = select(ModBotTable).where(ModBotTable.serverid == id)
-            res = await session.execute(stmt)
-            row = res.scalars().first()
-
-            if(not config):
-                config = ModBotTable(serverid=id)
-
-            if(row):
-                stmt = delete(ModBotTable).where(ModBotTable.serverid == id)
-                await session.execute(stmt)
-                session.add(config)
-                await session.commit()
-        return wrapper
-
-    def getconf(session):
-        async def wrapper(id: int):
-            stmt = select(ModBotTable).where(ModBotTable.serverid == id)
-            res = await session.execute(stmt)
-            row = res.scalars().first()
-            return row
-        return wrapper
+    serverid = Column(Integer, primary_key=True)
+    prefix = Column(String(5), default="!")
 
 
-        
-
+server = ModBotTable(serverid=12112)
+print(server.prefix)

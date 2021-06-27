@@ -12,10 +12,7 @@ import json
 from Tools.cache import ConfigCache
 import setupdatabase
 import models
-
-
-nest_asyncio.apply()
-client = commands.Bot(command_prefix="!")
+import setupdatabase
 
 
 def load(programclass: ProgramClass):
@@ -31,11 +28,12 @@ def load(programclass: ProgramClass):
     
 
 
+client = commands.Bot(command_prefix="!")
+cwd = '/'.join(str(pathlib.Path(__file__).parent.absolute()).split("/"))
+programclass = ProgramClass(cwd, client)
 async def main():
 
-    #set up program class
-    cwd = '/'.join(str(pathlib.Path(__file__).parent.absolute()).split("/"))
-    programclass = ProgramClass(cwd, client)
+
 
     #set up logger
     programclass.loggers.CreateLogger("Sys", "NOTSET", "Sys.log", True, True)
@@ -56,7 +54,12 @@ async def main():
 
     await programclass.loggers.Sys.debug("Bot Started")
 
+
+
     await programclass.loggers.organize()
-    client.run(programclass.config["token"])
+
+    
+
     
 asyncio.run(main())
+client.run(programclass.config["token"])

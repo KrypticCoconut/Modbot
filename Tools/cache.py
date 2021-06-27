@@ -1,5 +1,5 @@
 from Tools.Misc import FuncUtils
-
+from models import ModBotTable
 
 
       
@@ -13,15 +13,12 @@ class node:
 
 class ConfigCache:
 
-    def __init__(self, getconf, addfunc, cachelength: int): 
+    def __init__(self, cachelength: int): 
         # get and set have to be functions that fetch confs and return the confs
         # get input params: server id -> config
         # set input patrams: server id, new conf -> none
 
         FuncUtils.checkargs(["getconf", "modconf", "cachelength"])
-
-        self.GetConf = self.GetConf(getconf)
-        self.addtocache = self.addtocache(addfunc)
 
         self.cache = dict()
         self.cachelength = cachelength
@@ -31,11 +28,19 @@ class ConfigCache:
         self.head.next = self.tail
         self.tail.prev = self.head
 
+    def SetupFuncs(self, getconf, addconf, commitfunc):
+        getconf = self.GetConf(getconf)
+        self.addtocache = self.addtocache(addconf)
+        self.commitall = self.commitall(commitfunc, addconf)
+        addconf = self.AddConf
+        return getconf, addconf
+
+
     def GetConf(self , function) :
         async def wrapper(serverid: int):
             if(serverid in self.cache):
                 mnode = self.findnode(serverid)
-                self.movetofront(mnode)
+                await self.movetofront(mnode)
             else:
                 conf = await function(serverid)
                 if(not conf):
@@ -43,19 +48,25 @@ class ConfigCache:
                 self.cache[serverid] = conf
                 mnode = node(serverid, conf)
                 await self.addtocache(mnode)
-            return mnode
+            return mnode.val
         return wrapper
     
-    async def AddConf(self, serverid: int, conf) -> None:
+    async def AddConf(self, serverid: int, conf=None) -> None:
+        if(not conf):
+            conf = ModBotTable(serverid=serverid)
+
         if(serverid in self.cache):
             mnode = self.findnode(serverid)
             mnode.val = conf
             self.cache[serverid] = conf
-            self.movetofront(mnode)
+            await self.movetofront(mnode)
         else:   
             self.cache[serverid] = conf
             mnode = node(serverid, conf)
             await self.addtocache(mnode)
+
+
+
 
     def addtocache(self, addfunc) -> None:
         async def wrapper(node: node) -> None:
@@ -75,6 +86,7 @@ class ConfigCache:
                 await addfunc(n.key, n.val)
                 self.remove(n)
                 del self.cache[n.key]
+                print(self.cache)
                 
         return wrapper
 
@@ -85,6 +97,16 @@ class ConfigCache:
         p.next = n
         n.prev = p
 
+    def commitall(self, commit, addfunc):
+        async def wrapper():
+            curr = self.head.next
+            while True:
+                await addfunc(curr.key, curr.val)
+                curr = curr.next
+            await commit()
+
+                
+                
 
     def findnode(self, serverid: int) -> node:
         current = self.head
@@ -99,7 +121,7 @@ class ConfigCache:
                 current = current.next 
 
         
-    def movetofront(self, node: node) -> None:
+    async def movetofront(self, node: node) -> None:
         self.remove(node)
-        self.addtocache(node) #add will set the prev an next itself 
+        await self.addtocache(node) #add will set the prev an next itself 
 

@@ -4,9 +4,9 @@ from Tools.Misc import FuncUtils
 from Tools.logger import Loggers
 from Tools.files import FileStreams
 from Tools.sql import sqlconnmanager
-
 import discord
 from discord.ext import commands
+from models import Base, ModBotTable
 
 
 # program class that stores some variables and cog instances for easy accessability of data
@@ -24,7 +24,7 @@ class ProgramClass:
         self.cache = None
         self.loggers = Loggers(os.path.join(cwd, "data/logs"))
         self.filestreams = FileStreams()
-        self.sqlconnections = None
+        self.sqlconnection = None
 
 class Cogs:
     def __init__(self):

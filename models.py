@@ -18,4 +18,3 @@ class ModBotTable(Base):
 
 
 server = ModBotTable(serverid=12112)
-print(server.prefix)

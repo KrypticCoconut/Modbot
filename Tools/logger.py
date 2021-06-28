@@ -25,7 +25,7 @@ class Loggers:
         self.all_loggers = dict()
         self.log_path = log_path
         
-    def CreateLogger(self, name: str, logginglevel: str, filename: str, Streamhandler: bool = False, Filehandler:bool = True, format: str = '%(asctime)s - %(name)s - %(levelname)s - %(message)s') -> None:
+    def CreateLogger(self, name: str, logginglevel: str, filename: str, Streamhandler: bool = False, Filehandler:bool = True, format: str = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'):
         if((er := FuncUtils.checkargs(["logginglevel", "name", "filename", "Streamhandler", "Filehandler"])) != None):
             raise Exception(er)
         

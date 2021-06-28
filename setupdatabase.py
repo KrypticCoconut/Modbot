@@ -45,7 +45,7 @@ class enginectxmanager:
         await self.engine.dispose() # removes all associated connections
 
         
-def addconfig(conn):
+def addconfigdirectly(conn):
     async def wrapper(id: int, config):
         stmt = select(ModBotTable).where(ModBotTable.serverid == id)
         res = await session.execute(stmt)
@@ -62,7 +62,7 @@ def addconfig(conn):
 
     return wrapper
 
-def getconfig(conn):
+def getconfigdirectly(conn):
     async def wrapper(id: int):
         async with conn.begin() as engine:
             async with conn.createsession() as session:
@@ -71,8 +71,13 @@ def getconfig(conn):
                 row = res.scalars().first()
         return row
     return wrapper
-    
 
+def getconfigcache():
+    pass
+
+def addconfigcache():
+    pass
+    
 
 async def main(programclass):
 
@@ -91,9 +96,9 @@ async def main(programclass):
 
     #make cache
     cache = ConfigCache(2) # size 16 for now
-    global getconfig
-    global addconfig
-    getconfig, addconfig = cache.SetupFuncs(getconfig(programclass.sqlconnection),addconfig(programclass.sqlconnection), None)
+    global getconfigcache
+    global addconfigcache
+    getconfigcache, addconfigcache = cache.SetupFuncs(getconfigdirectly(programclass.sqlconnection),addconfigdirectly(programclass.sqlconnection), None)
     programclass.cache = cache
 
 

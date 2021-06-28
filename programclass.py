@@ -25,6 +25,8 @@ class ProgramClass:
         self.loggers = Loggers(os.path.join(cwd, "data/logs"))
         self.filestreams = FileStreams()
         self.sqlconnection = None
+        self.eventmanager = None
+
 
 class Cogs:
     def __init__(self):
@@ -34,7 +36,7 @@ class Cogs:
         res = [x for key, val in self.all_cogs.items() if key == type(cog)]
         if(res):
             raise Exception("cannot have cogs with same name")
-        self.all_cogs[type(cog)] = cog
+        self.all_cogs[cog.__class__.__name__] = cog
 
     def find_cog(self, cogname: str) -> [type, None]:
         res = [x for key, val in self.all_cogs.items if key == cogname]

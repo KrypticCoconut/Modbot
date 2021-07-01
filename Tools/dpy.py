@@ -5,11 +5,12 @@ from discord.ext.commands.context import Context
 class DiscordUtils:
 
     @classmethod
-    def helpargs(cls, desc=None, usage=None, hidden=False, shortdesc=None): #highly rigged function to assign function attributes as a decorator
+    def helpargs(cls, desc=None, usage=None, hidden=False, shortdesc=None, showsubcat=False): #highly rigged function to assign function attributes as a decorator
         def wrapper(obj):
             obj.desc = desc
             obj.usage = usage
             obj.hidden = hidden
+            obj.showsubcat=showsubcat
             if(not shortdesc):
                 obj.shortdesc = desc
             else:

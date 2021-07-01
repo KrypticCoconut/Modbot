@@ -33,7 +33,7 @@ class Utility(commands.Cog):
                 commandembed = discord.Embed(title=command.name, color=0xEE8700)
                 commandembed.add_field(name="Description:", value="```{}```".format(getattr(cog.__class__, command.name, None).desc), inline=False)
                 commandembed.add_field(name="Usage:", value="```{}```".format(getattr(cog.__class__, command.name, None).usage), inline=False)
-                if(isinstance(command, Group)):
+                if(isinstance(command, Group) and command.showsubcat):
                     subcommands = str()
                     for subcommand in command.commands:
                         subcommands += "{}: {}\n\n".format(subcommand.name, getattr(cog.__class__, subcommand.name, None).shortdesc)

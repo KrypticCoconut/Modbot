@@ -19,12 +19,12 @@ class UserManagement(commands.Cog):
 
 
     @DiscordUtils.helpargs(
-        desc="Group of subcommands used to warn/strike members", 
+        desc="Group of subcommands used to warn/strike members", showsubcat=True,
         usage="""
 help {category} warn - displays all subcommands
 help {category} warn {subcommand} - shows help for subcommand
 """)
-    @commands.group(name="warn", invoke_without_command=False)
+    @commands.group(name="warn", invoke_without_command=True)
     async def warn(self, ctx):
         subcommands = list()
         for command in self.warn.commands:
@@ -58,7 +58,7 @@ NOTE: this does not reset when a member leaves and joins again""",
 
     @DiscordUtils.helpargs(hidden=True, 
     shortdesc="Warn/srike a member",
-    desc="Warns the member and take out one left warn, when a member has 0 left warns, they will be muted on thier next warn, if no default muted role is set (muterole in RoleManagement category) then this command will create a new muted role ",
+    desc="Warns the member and take out one left warn, when a member has 0 left warns, they will be muted on thier next warn, if default muted role is set to none(use muterole in RoleManagement category to set it) then this command will create a new muted role",
     usage="warn warnuser {@user} {reason}")
     @warn.command(name="warnuser")
     async def warnuser(self, ctx, member:discord.Member, reason=None):
@@ -72,9 +72,27 @@ NOTE: this does not reset when a member leaves and joins again""",
             await ctx.channel.send(embed=embed)
             return
         embed = discord.Embed(title="Success!", color=0x00C166)
-        embed.add_field(name="Warned {}".format(member.display_name), value="Reason: {}".format(reason), inline=True)
+        embed.add_field(name="Warned {}".format(member.name), value="Reason: {}".format(reason), inline=True)
         if(mute):
-            embed.set_footer(text="Warnings remaining: 0(user muted)")
+            muteroleid = conf["default_mute_role"]
+            if(muteroleid):
+                muterole = discord.utils.get(ctx.guild.roles, id=muteroleid)
+                if(not muterole):
+                    embed.add_field(name="Note:",value="invalid default mute role, created/set it to a new role, use command `muterole get` to get new muterole", inline=False)
+                    muterole = await self.programclass.coginstances.all_cogs["RoleManagement"].create_muted(ctx.guild, "Muted")
+                    conf["default_mute_role"] = muterole.id
+                    #LOG MUTED ROLE HERE
+                    await member.add_roles(muterole)
+                else:
+                    member.add_roles(muterole)
+            else:
+                muterole = await self.programclass.coginstances.all_cogs["RoleManagement"].create_muted(ctx.guild, "Muted")
+                embed.add_field(name="Note:",value="invalid default mute role, created/set it to a new role, use command `muterole get` to get new muterole", inline=False)
+                conf["default_mute_role"] = muterole.id
+                #LOG MUTED ROLE HERE
+                await member.add_roles(muterole)
+                
+            embed.set_footer(text="Warnings remaining: -1(user muted)")
         else:
             embed.set_footer(text="Warnings remaining: {}".format(warnsleft))
         await ctx.channel.send(embed=embed)
@@ -86,22 +104,76 @@ NOTE: this does not reset when a member leaves and joins again""",
         elif(isinstance(error, MissingRequiredArgument)):
             await ctx.channel.send(embed=self.programclass.embeds["missingargs"])
 
+    @DiscordUtils.helpargs(hidden=True, 
+    shortdesc="Get remaining warns left for a user",
+    desc="returns remaining warns left for a user",
+    usage="warn getwarns {@user}")
+    @warn.command(name="getwarns")
+    async def getwarns(self, ctx, member: discord.User):
+        if(member.bot):
+            await ctx.channel.send(embed = self.programclass.embeds["cantpingbot"])
+            return
+        conf = await getconfigcache(ctx.guild.id)
+        indice  = [i for i,x in enumerate(conf["members"]) if x["member_id"] == member.id]
+        if(not indice):
+            left = conf["default_warns"]
+        else:
+            left = conf["members"][indice]["warnsleft"]
+        if(left < 0):
+            left = "{}(user muted)".format(left)
+        embed = discord.Embed(title="Warns left for {}".format(member.name), description = "{}".format(left) ,color=0x00C166)
+        await ctx.channel.send(embed=embed)
+
+    @getwarns.error
+    async def getwarns_error(self, ctx, error):
+        if(isinstance(error, MemberNotFound)):
+            await ctx.channel.send(embed=self.programclass.embeds["invalidmember"])
+        elif(isinstance(error, MissingRequiredArgument)):
+            await ctx.channel.send(embed=self.programclass.embeds["missingargs"])
+
+    @DiscordUtils.helpargs(hidden=True, 
+    shortdesc="Give user extra warns",
+    desc="Adds 1 extra warn to a member",
+    usage="warn addwarn {@user}")
+    @warn.command(name="addwarn")
+    async def addwarn(self, ctx, member: discord.User):
+        if(member.bot):
+            await ctx.channel.send(embed = self.programclass.embeds["cantpingbot"])
+            return
+        conf = await getconfigcache(ctx.guild.id)
+        indice  = [i for i,x in enumerate(conf["members"]) if x["member_id"] == member.id]
+        if(not indice):
+            now = conf["default_warns"]+1
+            conf["members"].append({"member_id": member.id, "warnsleft": now})   
+        else:
+            now = conf["members"][indice]["default_warns"] + 1
+            conf["members"][indice]["default_warns"] = now
+        embed = discord.Embed(title="Added one warn for {}".format(member.name), description = "warns now: {}".format(now) ,color=0x00C166)
+        await ctx.channel.send(embed=embed)
+
+    @getwarns.error
+    async def addwarn_error(self, ctx, error):
+        if(isinstance(error, MemberNotFound)):
+            await ctx.channel.send(embed=self.programclass.embeds["invalidmember"])
+        elif(isinstance(error, MissingRequiredArgument)):
+            await ctx.channel.send(embed=self.programclass.embeds["missingargs"])
+
+
     async def _warn(self, conf, userid):
 
         indice  = [i for i,x in enumerate(conf["members"]) if x["member_id"] == userid]
         if(not indice):
-            conf["members"].append({"member_id": userid, "warnsleft": conf["default_warns"]-1})        
-            return False, conf["default_warns"]-1
+            conf["members"].append({"member_id": userid, "warnsleft": conf["default_warns"]-1})     
+            return conf["default_warns"]-1==-1, conf["default_warns"]-1
         else:
             indice = indice[0]
             currentwarns = conf["members"][indice]["warnsleft"]
-            if(currentwarns-1 < 0):
-                return True, -1
+            if(currentwarns == 0):
+                conf["members"][indice]["warnsleft"] = currentwarns-1    
+                return True, 0
             else:
                 conf["members"][indice]["warnsleft"] = currentwarns-1    
-            if(currentwarns-1 == 0):
-                return True, 0
-            return False, currentwarns-1
+                return False, currentwarns-1
     
     @DiscordUtils.helpargs(hidden=True)
     @commands.command(name="getconfig")

@@ -7,7 +7,10 @@ from sqlalchemy import Table, Column, Integer, String
 from Tools.sql import sqlconnmanager
 from sqlalchemy.future import select
 from sqlalchemy import delete
-from models import Base, ModBotTable
+from models import *
+import json
+from sqlalchemy.orm import selectinload
+
 
 class sqlconnection:
     def __init__(self, engine, Base=None):
@@ -28,6 +31,7 @@ class sessionctxmanager:
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         if self.session:
+            await self.session.commit()
             await self.session.close() # releases connection and transaction object
 
 
@@ -44,21 +48,41 @@ class enginectxmanager:
         await self.c.close() #closes connection
         await self.engine.dispose() # removes all associated connections
 
-        
+
+def DeSerializeObject(schema=None): #convert dict to config 
+    schema = ModBotTableSchema()
+    def wrapper(sconfig):
+        r = schema.load(sconfig)
+        return r
+    return wrapper
+
+def SerializeObject(schema=None): #convert config to dict 
+    schema = ModBotTableSchema()
+    def wrapper(dsconfig):
+        r = schema.dump(dsconfig)
+        return r
+    return wrapper
+
+
 def addconfigdirectly(conn):
     async def wrapper(id: int, config):
-        stmt = select(ModBotTable).where(ModBotTable.serverid == id)
-        res = await session.execute(stmt)
-        row = res.scalars().first()
+        config = DeSerializeObject(config)
         async with conn.begin() as engine:
             async with conn.createsession() as session:
+                stmt = select(ModBotTable).where(ModBotTable.server_id == id).options(selectinload(ModBotTable.members))
+                res = await session.execute(stmt)
+                row = res.scalars().first()
                 if(row):
-                    stmt = delete(ModBotTable).where(ModBotTable.serverid == id)
-                    await session.execute(stmt)
+                    # horrible way to update but what can i do, im lazy 
+                    await session.delete(row)
+                    stmt = select(ModBotTable)
+                    res = await session.execute(stmt)
+                    for row in res.scalars():
+                        print(SerializeObject(row))
                     session.add(config)
                 else:
+                    print("yes")
                     session.add(config)
-
 
     return wrapper
 
@@ -66,10 +90,11 @@ def getconfigdirectly(conn):
     async def wrapper(id: int):
         async with conn.begin() as engine:
             async with conn.createsession() as session:
-                stmt = select(ModBotTable).where(ModBotTable.serverid == id)
+                stmt = select(ModBotTable).where(ModBotTable.server_id == id).options(selectinload(ModBotTable.members))
                 res = await session.execute(stmt)
                 row = res.scalars().first()
-        return row
+                r = SerializeObject(row)
+        return r
     return wrapper
 
 def getconfigcache():
@@ -77,7 +102,7 @@ def getconfigcache():
 
 def addconfigcache():
     pass
-    
+
 
 async def main(programclass):
 
@@ -92,17 +117,21 @@ async def main(programclass):
         await conn.run_sync(programclass.sqlconnection.base.metadata.create_all)
         #async with AsyncSession(engine) as session: works too
             
-
+    #setup marshmallow
+    global SerializeObject, DeSerializeObject
+    SerializeObject = SerializeObject()
+    DeSerializeObject = DeSerializeObject()
 
     #make cache
     cache = ConfigCache(2) # size 16 for now
-    global getconfigcache
-    global addconfigcache
-    getconfigcache, addconfigcache = cache.SetupFuncs(getconfigdirectly(programclass.sqlconnection),addconfigdirectly(programclass.sqlconnection), None)
+    global getconfigcache, addconfigcache
+    getconfigcache, addconfigcache = cache.SetupFuncs(getconfigdirectly(programclass.sqlconnection),addconfigdirectly(programclass.sqlconnection), SerializeObject)
     programclass.cache = cache
 
 
-    # server = ModBotTable(serverid = 21208932)
-    # y = await addconfig(21208932, server)
-    # x = await getconfig(21208932)
+
+    # await addconfigcache(167164138604)
+    # print(cache.cache)
+    # await programclass.cache.commitall()
+
     

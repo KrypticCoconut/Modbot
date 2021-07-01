@@ -14,7 +14,7 @@ import models
 import importlib
 
 @DiscordUtils.helpargs(hidden=True)
-class Utility(commands.Cog):
+class Setup(commands.Cog):
     def __init__(self, programclass):
         self.programclass = programclass
         self.client = programclass.client
@@ -26,11 +26,29 @@ class Utility(commands.Cog):
         await self.main()
         await self.programclass.loggers.Sys.debug("Started discord bot")
         
+        await self.commonembeds()
+
         #start all start function and unpause
-        await self.programclass.eventmanager.start()
+        await self.programclass.eventmanager.start() 
 
         await self.client.change_presence(status=discord.Status.online)
         await self.programclass.loggers.Sys.debug("Finished Bot init!")
+
+    async def commonembeds(self):
+        wrongargs = discord.Embed(title="Invalid args", description="invalid arguements, check command help", color=0xFF2D00)
+        self.programclass.embeds["wrongargs"] = wrongargs
+
+        missingargs = discord.Embed(title="missing arguments", description="missing arguments, check command help page", color=0xFF2D00)
+        self.programclass.embeds["missingargs"] = missingargs
+
+        invalidmember = discord.Embed(title="Invalid member", description="invalid member, check command help page", color=0xFF2D00)
+        self.programclass.embeds["invalidmember"] = invalidmember
+
+        invalidrole = discord.Embed(title="Invalid role", description="invalid role, check command help page", color=0xFF2D00)
+        self.programclass.embeds["invalidrole"] = invalidrole
+
+        cantpingbot = discord.Embed(title="How dare you...", description="We bots have transcended the mortals", color=0xFF2D00)
+        self.programclass.embeds["cantpingbot"] = cantpingbot
 
     async def main(self):
         programclass = self.programclass
@@ -42,6 +60,7 @@ class Utility(commands.Cog):
         streamwrapper = programclass.filestreams.AddStream("setupconf", os.path.join(programclass.cwd, "config.json"))
         async with await streamwrapper.openwithmode("r") as stream:
             programclass.config = json.loads(await stream.read())
+            await programclass.loggers.Sys.debug("Bot was loaded with token: " + str(programclass.config["token"]))
             await programclass.loggers.Sys.debug("Loaded config: " + str(programclass.config))
 
         #set up main databases and sessions
@@ -67,7 +86,7 @@ class Utility(commands.Cog):
 
 def setup(programclass):
     client = programclass.client
-    CogInstance = Utility(programclass)
+    CogInstance = Setup(programclass)
     programclass.coginstances.add_cog(CogInstance)
     client.add_cog(CogInstance)
     

@@ -1,33 +1,79 @@
 import discord
-
+import inspect
+from discord.ext.commands.core import Command
+from discord.ext.commands.context import Context
 class DiscordUtils:
 
     @classmethod
-    def helpargs(cls, desc=None, usage=None, example=None, hidden=False): #highly rigged function to assign function attributes as a decorator
+    def helpargs(cls, desc=None, usage=None, hidden=False, shortdesc=None): #highly rigged function to assign function attributes as a decorator
         def wrapper(obj):
             obj.desc = desc
             obj.usage = usage
-            obj.example = example
             obj.hidden = hidden
+            if(not shortdesc):
+                obj.shortdesc = desc
+            else:
+                obj.shortdesc = shortdesc
             return obj
         return wrapper
 
     class CogEventManager:
         def __init__(self):
-            self.paused = True
-            self.startfuncs = list()
-            self.embed = discord.Embed(title="Patience child..", description="Command data is still loading", color=0xFF2D00)
+            #self._paused = True
+            self.startfuncs = dict()
+            #self.events = list()
 
-        def ispaused(self):
-            if(self.paused):
-                return self.embed
-            return None
+        # @property
+        # def paused(self):
+        #     return self._paused
+        
+        # @paused.setter
+        # def paused(self, value:bool):
+        #     self._paused = value
+        #     #self.updatevents()
 
-        def startfunc(self, func):
-            self.startfuncs.append(func)
+        @classmethod
+        def startfunc(cls, func):
+            func.startmethod = True
             return func
 
+        # @classmethod
+        # def waitforstart(cls, func):
+        #     embed = discord.Embed(title="Patience child..", description="Command data is still loading", color=0xFF2D00)
+        #     async def wrapper(self, ctx, *args):
+        #         if(wrapper.pausevar):
+        #             # for x in args:
+        #             #     if(isinstance(x, Context)):
+        #             #         await x.channel.send(embed=embed)
+        #             #         return
+        #             # for x in kwargs:
+        #             #     if(isinstance(x, Context)):
+        #             #         await x.channel.send(embed=embed)
+        #             #         return
+        #             pass
+        #         try:
+        #             await func(self, ctx, *args)
+        #         except Exception as error:
+        #             print(error) 
+        #     wrapper.waitforstart = True
+        #     return wrapper
+
+        def inject(self, cog, coginstance):
+            attrs = (getattr(cog, name) for name in dir(cog))
+            startfuncs = filter(lambda x: callable(x) and getattr(x, "startmethod", False) , attrs)
+            for method in startfuncs:
+                self.startfuncs[method] = coginstance
+
+            # commands = filter(lambda x: getattr(x.callback, "waitforstart", False) , cog.__cog_commands__)
+            # for command in commands:
+            #     command.callback.pausevar = self.paused
+            #     self.events.append(command.callback)
+        
         async def start(self):
-            for func in self.startfuncs:
-                await func()
-            self.paused = False 
+            for func, instance in self.startfuncs.items():
+                await func(instance)
+            #self.paused = False 
+
+        # def updatevents(self):
+        #     for method in self.events:
+        #         method.pausevar = self.paused

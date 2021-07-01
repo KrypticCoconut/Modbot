@@ -27,6 +27,8 @@ class ProgramClass:
         self.sqlconnection = None
         self.eventmanager = None
 
+        self.embeds = dict()
+
 
 class Cogs:
     def __init__(self):

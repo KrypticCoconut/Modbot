@@ -1,7 +1,8 @@
 import discord
+from discord.ext.commands.core import Group, Command
 from discord.ext import commands
 from Tools.dpy import DiscordUtils
-
+from setupdatabase import addconfigcache, getconfigcache
 
 @DiscordUtils.helpargs(desc="Utility commands", usage=None)
 class Utility(commands.Cog):
@@ -10,36 +11,43 @@ class Utility(commands.Cog):
         self.programclass = programclass
         self.client = programclass.client
         self.compiledhelp = dict()
-        #self.ping = eventmanager.eventwrapper(self.ping)
 
-        self.start = self.eventmanager.startfunc(self.start)
-
+    @DiscordUtils.CogEventManager.startfunc
     async def start(self):
         await self.programclass.loggers.Sys.debug("Loaded Cog \"Utility\"")
-        await self.compilehelp()
 
     async def compilehelp(self):
         # Compile args
         noneembed = discord.Embed(title="Help", color=0xEE8700)
-        nonestring = ""
+        nonestring = str()
         for name,cog in self.programclass.coginstances.all_cogs.items():
             if(cog.hidden):
                 continue
-            nonestring += "{}: {}\n".format(name,cog.desc)
-            cogembed = discord.Embed(title="Help", color=0xEE8700)
-            cogstring = ""
-            for command in cog.__cog_commands__:
+            nonestring += "{}: {}\n\n".format(name,cog.shortdesc)
+            cogembed = discord.Embed(title=name, description=cog.desc, color=0xEE8700)
+            cogstring = str()
+            for command in cog.__class__.__cog_commands__:
                 if(command.hidden):
                     continue
-                cogstring += "{}: {}\n".format(command.name, getattr(cog.__class__, command.name).desc)
+                cogstring += "{}: {}\n\n".format(command.name, getattr(cog.__class__, command.name, None).shortdesc)
                 commandembed = discord.Embed(title=command.name, color=0xEE8700)
-                commandembed.add_field(name="Description:", value="```{}```".format(getattr(cog.__class__, command.name).desc), inline=False)
-                commandembed.add_field(name="Usage:", value="```{}```".format(getattr(cog.__class__, command.name).usage), inline=False)
+                commandembed.add_field(name="Description:", value="```{}```".format(getattr(cog.__class__, command.name, None).desc), inline=False)
+                commandembed.add_field(name="Usage:", value="```{}```".format(getattr(cog.__class__, command.name, None).usage), inline=False)
+                if(isinstance(command, Group)):
+                    subcommands = str()
+                    for subcommand in command.commands:
+                        subcommands += "{}: {}\n\n".format(subcommand.name, getattr(cog.__class__, subcommand.name, None).shortdesc)
+
+                        subcommandembed = discord.Embed(title=subcommand.name, color=0xEE8700)
+                        subcommandembed.add_field(name="Description:", value="```{}```".format(getattr(cog.__class__, subcommand.name, None).desc), inline=False)
+                        subcommandembed.add_field(name="Usage:", value="```{}```".format(getattr(cog.__class__, subcommand.name, None).usage), inline=False)
+                        self.compiledhelp["{} {} {}".format(name, command.name, subcommand.name)] = subcommandembed
+                    commandembed.add_field(name="Subcommands:",value="```{}```".format(subcommands))
                 self.compiledhelp["{} {}".format(name, command.name)] = commandembed
             cogembed.add_field(name="Commands in {}:".format(name), value="```{}```".format(cogstring))
-            self.compiledhelp["{} None".format(name)] = cogembed
+            self.compiledhelp["{}".format(name)] = cogembed
         noneembed.add_field(name="Command categories:", value="```{}```".format(nonestring))
-        self.compiledhelp["None None"] = noneembed
+        self.compiledhelp[""] = noneembed
 
 
 
@@ -49,33 +57,39 @@ class Utility(commands.Cog):
 help - shows all command categories
 help \{category\} - shows commands in category
 help \{category\} \{command\} - shows usage for specific command""")
-    @commands.command()
-    async def help(self, ctx, cog=None, command=None):
-        if(e := self.eventmanager.ispaused()):
-            await ctx.send(embed=e)
-            return
-        arg = "{} {}".format(cog, command)
+    @commands.command(name="help")
+    async def help(self, ctx, cog="", command="", subcommand=""):
+        if(self.compiledhelp == {}):
+            await self.compilehelp()
+        arg = "{} {} {}".format(cog, command, subcommand).rstrip()
         e = self.compiledhelp.get(arg)
         if(e == None):
             errembed = discord.Embed(title="Error", color=0xFF2D00)
-            
-            if(len(arg.split()) == 2):
-                errembed.add_field(name="Command error", value="No command with name \"{}\" found in \"{}\" ".format(command, cog))
-            else:
-                errembed.add_field(name="Command error", value="No category found with name \"{}\"".format(cog))
+            sparg = arg.split()
+            for i in range(1, len(sparg)+1):
+                x = " ".join(sparg[0:i])
+                if(self.compiledhelp.get(x) == None):
+                    if(i == 1):
+                        errembed.add_field(name="Command error", value="No category found with name \"{}\"".format(cog))
+                    elif(i == 2):
+                        errembed.add_field(name="Command error", value="command \"{}\"not found in \"{}\" ".format(command, cog))
+                    else:
+                        errembed.add_field(name="Command error", value="subcommand \"{}\" found in \"{}\" ".format(subcommand, command))
+                    await ctx.send(embed=errembed)
+                    return
             
             await ctx.send(embed=errembed)
             return
         await ctx.send(embed=e)
     
 
-    @DiscordUtils.helpargs(desc="insane!", usage=None)
-    @commands.command()
+    @DiscordUtils.helpargs(desc="Shows bot latency" , usage="ping - will return bot latency")
+    @commands.command(name="ping")
     async def ping(self, ctx):
         await ctx.send('Pong! {0} ms'.format(round(self.client.latency, 6)))
 
-    @DiscordUtils.helpargs(desc="Utility commands", usage=None)
-    @commands.command()
+    @DiscordUtils.helpargs(shortdesc="Shows server stats", usage="serverinfo - will show serverinfo")
+    @commands.command(name="serverinfo")
     async def serverinfo(self, ctx):
         """Shows server info"""
 
@@ -102,10 +116,12 @@ help \{category\} \{command\} - shows usage for specific command""")
         await ctx.channel.send(embed=embeded) 
 
 
+
 def setup(programclass):
     client = programclass.client
     CogInstance = Utility(programclass)
     programclass.coginstances.add_cog(CogInstance)
     client.add_cog(CogInstance)
+    programclass.eventmanager.inject(Utility, CogInstance)
     
 

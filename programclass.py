@@ -4,6 +4,7 @@ from Tools.Misc import FuncUtils
 from Tools.logger import Loggers
 from Tools.files import FileStreams
 from Tools.sql import sqlconnmanager
+from Tools.eventscheduler import EventScheduler
 import discord
 from discord.ext import commands
 from models import Base, ModBotTable
@@ -26,6 +27,7 @@ class ProgramClass:
         self.filestreams = FileStreams()
         self.sqlconnection = None
         self.eventmanager = None
+        self.eventscheduler = None
 
         self.embeds = dict()
 

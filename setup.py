@@ -16,7 +16,9 @@ from Tools.dpy import DiscordUtils
 import importlib
 import setupcog
 
-client = commands.Bot(command_prefix="!")
+
+intents = discord.Intents.all()
+client = commands.Bot(command_prefix="!", intents=intents)
 client.remove_command('help')
 cwd = '/'.join(str(pathlib.Path(__file__).parent.absolute()).split("/"))
 programclass = ProgramClass(cwd, client)

@@ -39,17 +39,20 @@ class RoleManagement(commands.Cog):
                 embed = discord.Embed(title="Unkown mute role", description="invalid mute role, use `setmuterole` command to set new role", color=0xFF2D00)
 
     @DiscordUtils.helpargs(hidden=True, showsubcat=False,
-    shortdesc="commands related to mute role ",
+    shortdesc="used to set muterole",
     desc="""changes/gets the default mute role, this role is current used by the following commands:
 -warn
-NOTE: check the roletemplate command for furtherinfo""",
+""",
     usage="""
 muterole set {role} - set the mute role to specified role
 muterole get - get current mute role
 """)
     @commands.group(name="muterole", invoke_without_command=True)
-    async def muterole(self, ctx):
-        await ctx.channel.send(embed=self.programclass.embeds["missingargs"])
+    async def muterole(self, ctx, *args):
+        if(args):
+            await ctx.channel.send(embed=self.programclass.embeds["wrongargs"])
+        else:
+            await ctx.channel.send(embed=self.programclass.embeds["missingargs"])
     
     @DiscordUtils.helpargs(hidden=True)
     @muterole.command(name="set")

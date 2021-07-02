@@ -12,6 +12,7 @@ from Tools.cache import ConfigCache
 import setupdatabase
 import models
 import importlib
+from Tools.eventscheduler import EventScheduler
 
 @DiscordUtils.helpargs(hidden=True)
 class Setup(commands.Cog):
@@ -70,6 +71,9 @@ class Setup(commands.Cog):
         eventmanager = DiscordUtils.CogEventManager()
         programclass.eventmanager = eventmanager
         
+        #setup event scheduler
+        self.programclass.eventscheduler = EventScheduler()
+
         #load cogs
         await self.loadcogs()
 

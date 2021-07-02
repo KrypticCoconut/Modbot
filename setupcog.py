@@ -13,6 +13,7 @@ import setupdatabase
 import models
 import importlib
 from Tools.eventscheduler import EventScheduler
+import importlib
 
 @DiscordUtils.helpargs(hidden=True)
 class Setup(commands.Cog):
@@ -73,10 +74,17 @@ class Setup(commands.Cog):
         
         #setup event scheduler
         self.programclass.eventscheduler = EventScheduler()
+        
+        #setup get prefix
+        self.client.command_prefix = self.get_prefix
 
         #load cogs
         await self.loadcogs()
 
+
+    async def get_prefix(self, client, message):
+        conf = await self.programclass.getconfigcache(message.guild.id)
+        return conf["prefix"]
 
     async def loadcogs(self):
         programclass = self.programclass

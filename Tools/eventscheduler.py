@@ -10,39 +10,23 @@ class EventScheduler:
         self.events = dict()
         self.scheduler.start()
 
-    def AddEvent(self, memberid, serverid, category, datetime, func, args):
-
-        #this is a terrible implementation but im lazy
-        if(not self.events.get(serverid, None)):
-            self.events[serverid] = dict()
-        if(not self.events[serverid].get(category, None)):
-            self.events[serverid][category] = dict()
-
-        job = self.scheduler.add_job(func, 'date', args, next_run_time=datetime)
+    def AddEvent(self, conf, user, datetime, func, args):
+        #assumes datetime in format `Month-Day-Hour-Minute`
         
-        try:
-            if(self.events[serverid][category][memberid]):
-                self.events[serverid][category][memberid][1].remove()
-        except:
-            pass
-        self.events[serverid][category][memberid] = [datetime.strftime("Month:%m Day:%d Time:%H:%M:%S"), job]
-    
-    def GetEvents(self, serverid):
-        events = self.events.get(serverid, None)
-        if(not events):
-            return None
-        return events
+        member = [member for member in conf["members"] if member["member_id"] == user.id]
+        if(not member):
+            member = {"member_id": user.id, "warnsleft": conf["default_warns"]}
+            job = self.scheduler.add_job(func, 'date', args, next_run_time=datetime)
+            member["job"] = dict()
+            member["job"]["datetime"] = self.GetDateTime(datetime)
+            member["job"]["jobid"] = job.id
+            conf["members"].append(member)
+        else:
+            member = member[0]
+            job = self.scheduler.add_job(func, 'date', args, next_run_time=datetime)
+            member["job"]["datetime"] = self.GetDateTime(datetime)
+            member["job"]["jobid"] = job.id
 
+    def GetDateTime(self, dt):
+        return str(dt.strftime("%d/%m/%Y %H:%M:%S"))
 
-# async def runfunc():
-#     print("running function")
-
-# async def main():
-#     e = EventScheduler()
-#     e.AddEvent(213768231768, "warns", datetime.datetime.now() + datetime.timedelta(seconds=3), runfunc)
-
-#     while True:
-#         await asyncio.sleep(.5)
-
-
-# asyncio.run(main())

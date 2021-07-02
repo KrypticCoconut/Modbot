@@ -1,7 +1,6 @@
 import discord
 from discord.ext import commands
 from Tools.dpy import DiscordUtils
-from setupdatabase import addconfigcache, getconfigcache
 from discord.ext.commands.errors import *
 
 
@@ -29,7 +28,7 @@ class RoleManagement(commands.Cog):
             return mutedRole
 
     async def mute_member(self, guild: discord.Guild, member: discord.Member):
-        conf = await getconfigcache(guild.id)
+        conf = await self.programclass.getconfigcache(guild.id)
         if(conf["default_mute_role"] == None):
             muterole = self.create_muted()
         else:
@@ -57,7 +56,7 @@ muterole get - get current mute role
     @DiscordUtils.helpargs(hidden=True)
     @muterole.command(name="set")
     async def muterole_set(self, ctx, role: discord.Role):
-        conf = await getconfigcache(ctx.guild.id)
+        conf = await self.programclass.getconfigcache(ctx.guild.id)
         conf["default_mute_role"] = role.id
         embed = discord.Embed(title="Success!", description="changed default muted role to {}".format(role.mention), color=0x00C166)
         await ctx.channel.send(embed=embed)
@@ -72,7 +71,7 @@ muterole get - get current mute role
     @DiscordUtils.helpargs(hidden=True)
     @muterole.command(name="get")
     async def muterole_get(self, ctx):
-        conf = await getconfigcache(ctx.guild.id)
+        conf = await self.programclass.getconfigcache(ctx.guild.id)
         r = conf["default_mute_role"]
         role = discord.utils.get(ctx.guild.roles, id=r)
         if(role):

@@ -2,7 +2,6 @@ import discord
 from discord.ext.commands.core import Group, Command
 from discord.ext import commands
 from Tools.dpy import DiscordUtils
-from setupdatabase import addconfigcache, getconfigcache
 
 @DiscordUtils.helpargs(desc="Utility commands", usage=None)
 class Utility(commands.Cog):
@@ -88,7 +87,7 @@ help \{category\} \{command\} - shows usage for specific command""")
     async def ping(self, ctx):
         await ctx.send('Pong! {0} ms'.format(round(self.client.latency, 6)))
 
-    @DiscordUtils.helpargs(shortdesc="Shows server stats", usage="serverinfo - will show serverinfo")
+    @DiscordUtils.helpargs(desc="Shows server stats", usage="serverinfo - will show serverinfo")
     @commands.command(name="serverinfo")
     async def serverinfo(self, ctx):
         """Shows server info"""
@@ -115,7 +114,17 @@ help \{category\} \{command\} - shows usage for specific command""")
 
         await ctx.channel.send(embed=embeded) 
 
-
+    @DiscordUtils.helpargs(desc="change server prefix", usage="serverprefix {prefix} - changes prefix, max length 5")
+    @commands.command(name = "setprefix")
+    async def setprefix(self, ctx, prefix: str):
+        if(len(prefix) > 5):
+            embed = discord.Embed(title="Error", description="max prefix length is 5", color=0xFF2D00)
+            await ctx.channel.send(embed=embed)
+            return
+        conf = await self.programclass.getconfigcache(ctx.guild.id)
+        conf["prefix"] = prefix
+        embed = discord.Embed(title="Success!", description="Changed prefix to {}".format(prefix), color=0x00C166)
+        await ctx.channel.send(embed=embed) 
 
 def setup(programclass):
     client = programclass.client

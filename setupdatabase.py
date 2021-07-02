@@ -97,12 +97,6 @@ def getconfigdirectly(conn):
         return r
     return wrapper
 
-def getconfigcache():
-    pass
-
-def addconfigcache():
-    pass
-
 
 async def main(programclass):
 
@@ -123,15 +117,9 @@ async def main(programclass):
     DeSerializeObject = DeSerializeObject()
 
     #make cache
-    cache = ConfigCache(2) # size 16 for now
-    global getconfigcache, addconfigcache
-    getconfigcache, addconfigcache = cache.SetupFuncs(getconfigdirectly(programclass.sqlconnection),addconfigdirectly(programclass.sqlconnection), SerializeObject)
+    cache = ConfigCache(2) # size 2 for now
+    programclass.getconfigcache, programclass.addconfigcache = cache.SetupFuncs(getconfigdirectly(programclass.sqlconnection),addconfigdirectly(programclass.sqlconnection), SerializeObject)
     programclass.cache = cache
 
-
-
-    # await addconfigcache(167164138604)
-    # print(cache.cache)
-    # await programclass.cache.commitall()
 
     

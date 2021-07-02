@@ -1,7 +1,6 @@
 import discord
 from discord.ext import commands
 from Tools.dpy import DiscordUtils
-from setupdatabase import addconfigcache, getconfigcache
 from discord.ext.commands.errors import *
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -33,7 +32,7 @@ NOTE: by default this command will create a new Muted role or use any role with 
     usage="""mute add {member} - mute member
 mute add {member} {time} - mute member for given time, (time must be in `Days-Hours-Minutes-Seconds` format)
 mute show - shows all scheduled timers for mutes
-mute remove {mute id} - basically cancels timer for unmute
+mute remove {member} - basically cancels timer for unmute #using this command is basically gods work, it reduces server stress
 """)
     @commands.group(name="mute", showsubcat=False, invoke_without_command=True)
     async def mute(self, ctx, *args):
@@ -42,86 +41,32 @@ mute remove {mute id} - basically cancels timer for unmute
         else:
             await ctx.channel.send(embed=self.programclass.embeds["missingargs"])
 
+    @DiscordUtils.helpargs(hidden=True)
     @mute.command(name="add")
     async def mute_add(self, ctx, member: discord.Member, time=None):
         if(member.bot):
             await ctx.channel.send(embed=self.programclass.embeds["cantpingbot"])
         embed = discord.Embed(title="Success!", description="Muted {}".format(member.name), color=0x00C166)
+        conf = await self.programclass.getconfigcache(ctx.guild.id)
         if(time):
             try:
+                if(len(time) > 90):
+                    embed = discord.Embed(title="Error!", description="Too long time string".format(member.name), color=0x00C166)
+                    await ctx.channel.send(embed=embed)
+                    return
                 day, hour, minutes, seconds = map(int, time.split('-'))
                 time = datetime.datetime.now() + datetime.timedelta(days=day, hours=hour, minutes=minutes, seconds=seconds)
-                self.programclass.eventscheduler.AddEvent(member.id, ctx.guild.id, "mute", time, self.unmute_member, [ctx.guild.id, member.id])
-                embed.set_footer(text="User will be unmuted at {}".format(time.strftime("Month:%m Day:%d Time:%H:%M:%S")))
-            except Exception as err:
-                print(type(err))
+                self.programclass.eventscheduler.AddEvent(conf, member, time, self.unmute_member, [ctx.guild.id, member.id])
+                embed.set_footer(text="User will be unmuted at {}".format(self.programclass.eventscheduler.GetDateTime(time)))
+            except:
                 await ctx.channel.send(embed=self.programclass.embeds["wrongargs"])
                 return
 
-        conf = await getconfigcache(ctx.guild.id)
         new, muterole = await self._get_muterole(conf, ctx.guild)
         if(new):
             embed.add_field(name="Note:",value="none\invalid default mute role, created\set it to a new mute role, use command `muterole get` to get new default muterole", inline=False)
         await member.add_roles(muterole)
         await ctx.channel.send(embed=embed)
-
-
-
-    @mute_add.error
-    async def mute_add_error(self, ctx, error):
-        if(isinstance(error, MemberNotFound)):
-            await ctx.channel.send(embed=self.programclass.embeds["invalidmember"])
-        elif(isinstance(error, MissingRequiredArgument)):
-            await ctx.channel.send(embed=self.programclass.embeds["missingargs"])
-
-    @mute.command(name="show")
-    async def mute_show(self, ctx):
-        events = self.programclass.eventscheduler.GetEvents(ctx.guild.id)
-        eventstr = str()
-        if(not events):
-            eventstr = None
-        else:
-            if(not events.get("mute", None)):
-                eventstr = None
-            else:
-                d = list()
-                for uid,event in events["mute"].items():
-                    if(m := ctx.guild.get_member(uid)):
-                        eventstr += "{}, {}: {}".format(uid,m,event[0])
-                    else:
-                        d.append(uid)
-                for x in d:
-                    del events["mute"][uid]
-                if(eventstr == ""):
-                    eventstr=None
-                        
-        embed = discord.Embed(title="Active warn schedules: ", description="```{}```".format(eventstr), color=0x00C166)
-        await ctx.channel.send(embed=embed)
-
-    @mute.command(name="remove")
-    async def mute_remove(self, ctx, uid:int):
-        if(not isinstance(uid, int)):
-            await ctx.channel.send(embed=self.programclass.embeds["wrongargs"])
-            return
-        events = self.programclass.eventscheduler.GetEvents(ctx.guild.id)
-        if(not events):
-            embed = discord.Embed(title="Error", description="No such scheduled warn", color=0xFF2D00)
-        if(not events.get("mute", None)):
-            embed = discord.Embed(title="Error", description="No such scheduled warn", color=0xFF2D00)
-        else:
-            if(e:= events["mute"].get(uid)):
-                e[1].remove()
-                del events["mute"][uid]
-                embed = discord.Embed(title="Success", description="Deleted warn for {}".format(uid), color=0xFF2D00)
-            else:
-                embed = discord.Embed(title="Error", description="No such scheduled warn", color=0xFF2D00)
-        print(self.programclass.eventscheduler.events)
-        await ctx.channel.send(embed=embed)
-
-    @mute_remove.error
-    async def mute_remove_error(self, ctx, error):
-        if(isinstance(error, MissingRequiredArgument)):
-            await ctx.channel.send(embed=self.programclass.embeds["missingargs"])
 
     async def unmute_member(self, serverid, member_id):
         try:
@@ -135,7 +80,7 @@ mute remove {mute id} - basically cancels timer for unmute
             #member left
             return
 
-        conf = await getconfigcache(serverid)
+        conf = await self.programclass.getconfigcache(serverid)
         # if(not conf["default_mute_role"]):
         #     #no default role set
         #     return
@@ -148,7 +93,59 @@ mute remove {mute id} - basically cancels timer for unmute
         if(role):
             await member.remove_roles(role)
 
-        del self.programclass.eventscheduler.events[serverid]["mute"][member_id]
+        conf = await self.programclass.getconfigcache(serverid)
+        m = [m for m in conf["members"] if m["member_id"] == member_id][0]
+        m["job"] = None
+
+
+    @mute_add.error
+    async def mute_add_error(self, ctx, error):
+        if(isinstance(error, MemberNotFound)):
+            await ctx.channel.send(embed=self.programclass.embeds["invalidmember"])
+        elif(isinstance(error, MissingRequiredArgument)):
+            await ctx.channel.send(embed=self.programclass.embeds["missingargs"])
+
+    @DiscordUtils.helpargs(hidden=True)
+    @mute.command(name="show")
+    async def mute_show(self, ctx):
+        eventstr = str()
+        conf = await self.programclass.programclass.getconfigcache(ctx.guild.id)
+        delete = list()
+        for i, member in enumerate(conf["members"]):
+            if(not (m := ctx.guild.get_member(member["member_id"]))):
+                delete.append(i)
+                continue
+            if(j := member.get("job")):
+                eventstr += "{}, {}".format(m, j["datetime"])
+        if(eventstr == ""):
+            eventstr = "None"
+        embed = discord.Embed(title="Active unmute schedules: ", description="```{}```".format(eventstr), color=0x00C166)
+        await ctx.channel.send(embed=embed)
+
+    @DiscordUtils.helpargs(hidden=True)
+    @mute.command(name="remove")
+    async def mute_remove(self, ctx, member:discord.Member):
+
+        conf = await self.programclass.getconfigcache(ctx.guild.id)
+        m = [m for m in conf["members"] if m["member_id"] == member.id]
+        if(not m):
+            embed = discord.Embed(title="Error", description="User does not have a unmute schedule", color=0xFF2D00)
+        else:
+            m = m[0]
+            if(not (j := m.get("job"))):
+                embed = discord.Embed(title="Error", description="User does not have a unmute schedule", color=0xFF2D00)
+            else:
+                self.programclass.eventscheduler.scheduler.remove_job(j["jobid"])
+                m["job"] = None
+                embed = discord.Embed(title="Success", description="Job successfully unregistered", color=0x00C166)
+        await ctx.channel.send(embed=embed)
+
+    # @mute_remove.error
+    # async def mute_remove_error(self, ctx, error):
+    #     if(isinstance(error, MissingRequiredArgument)):
+    #         await ctx.channel.send(embed=self.programclass.embeds["missingargs"])
+    #     if(isinstance(error, MemberNotFound)):
+    #         await ctx.channel.send(embed=self.programclass.embeds["invalidmember"])
 
 
     @DiscordUtils.helpargs(
@@ -181,7 +178,7 @@ NOTE: this does not reset when a member leaves and joins again""",
             embed = discord.Embed(title="Invalid args", description="\"warns\" argument has to be a number", color=0xFF2D00)
             await ctx.channel.send(embed=embed)
             return
-        conf = await getconfigcache(ctx.guild.id)
+        conf = await self.programclass.getconfigcache(ctx.guild.id)
         conf["default_warns"] = warns
         embed = discord.Embed(title="Success!", description="defaultwarns set to {}".format(warns), color=0x00C166)
         await ctx.channel.send(embed=embed)
@@ -201,7 +198,7 @@ NOTE: by default this command will create a new Muted role or use any role with 
         if(member.bot):
             await ctx.channel.send(embed = self.programclass.embeds["cantpingbot"])
             return
-        conf = await getconfigcache(ctx.guild.id)
+        conf = await self.programclass.getconfigcache(ctx.guild.id)
         mute, warnsleft = await self._warn(conf, member.id)
         if(warnsleft < 0):
             embed = discord.Embed(title="Error", color=0xFF2D00, description="No warns left for {}".format(member.display_name))
@@ -235,7 +232,7 @@ NOTE: by default this command will create a new Muted role or use any role with 
         if(member.bot):
             await ctx.channel.send(embed = self.programclass.embeds["cantpingbot"])
             return
-        conf = await getconfigcache(ctx.guild.id)
+        conf = await self.programclass.getconfigcache(ctx.guild.id)
         indice  = [i for i,x in enumerate(conf["members"]) if x["member_id"] == member.id]
         if(not indice):
             left = conf["default_warns"]
@@ -262,7 +259,7 @@ NOTE: by default this command will create a new Muted role or use any role with 
         if(member.bot):
             await ctx.channel.send(embed = self.programclass.embeds["cantpingbot"])
             return
-        conf = await getconfigcache(ctx.guild.id)
+        conf = await self.programclass.getconfigcache(ctx.guild.id)
         indice  = [i for i,x in enumerate(conf["members"]) if x["member_id"] == member.id]
         if(not indice):
             now = conf["default_warns"]+1
@@ -317,7 +314,7 @@ NOTE: by default this command will create a new Muted role or use any role with 
     @DiscordUtils.helpargs(hidden=True)
     @commands.command(name="getconfig")
     async def getconfig(self, ctx):
-        conf = await getconfigcache(ctx.guild.id)
+        conf = await self.programclass.getconfigcache(ctx.guild.id)
         await ctx.channel.send(conf)
 
 def setup(programclass):

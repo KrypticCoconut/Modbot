@@ -29,6 +29,9 @@ class ProgramClass:
         self.eventmanager = None
         self.eventscheduler = None
 
+        self.getconfigcache = None
+        self.addconfigcache = None
+
         self.embeds = dict()
 
 
